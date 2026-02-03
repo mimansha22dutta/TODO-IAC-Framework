@@ -1,0 +1,89 @@
+trigger:
+- feature/*
+- main
+
+pool: Iac-agent-pool
+
+variables:
+  workDir: '$(System.DefaultWorkingDirectory)/environments/dev'
+
+stages:
+  - stage: Build
+    displayName: Build
+    jobs:
+      - job: TerraformInitPlan
+        displayName: Terraform Init and Plan Job
+        steps: 
+        - task: TerraformInstaller@1
+          inputs:
+            terraformVersion: 'latest'
+        - task: TerraformTask@5
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            workingDirectory: $(workDir)
+            backendServiceArm: 'az-sub-infra'
+            backendAzureRmStorageAccountName: 'tfstatedevbackend'
+            backendAzureRmContainerName: 'tfstate'
+            backendAzureRmKey: 'dev.terraform.tfstate'
+        - task: TerraformTask@5
+          inputs:
+            provider: 'azurerm'
+            command: 'plan'
+            workingDirectory: $(workDir)
+            environmentServiceNameAzureRM: 'az-sub-infra'
+  
+  - stage: Scanning
+    dependsOn: Build
+    displayName: Scanning
+    jobs:
+      - job: TFSecScanningJob
+        displayName: TFSEC Scanning Job
+        steps:
+        - task: tfsec@1
+          inputs:
+            version: 'v1.26.0'
+            dir: $(workDir)
+
+      - job: TfLintScanningJob
+        displayName: TFLINT Scanning
+        steps:
+        - task: CmdLine@2
+          inputs:
+            script: 'echo Hello world'
+
+  - stage: Deploy
+    dependsOn: Scanning
+    displayName: Deploy
+    jobs:
+      - job: ManualValidation
+        displayName: Please do ManualValidation
+        pool: server
+        steps:
+        
+        - task: ManualValidation@1
+          inputs:
+            notifyUsers: 'mimansha.dutta@asadhashmi11914gmail.onmicrosoft.com'
+            approvers: 'mimansha.dutta@asadhashmi11914gmail.onmicrosoft.com'
+            instructions: 'Check Plan. Approve to continue deployment'
+
+      - job: TerraformApply
+        displayName: Terraform Apply
+        dependsOn: ManualValidation
+        steps:
+        - task: TerraformTask@5
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            workingDirectory: $(workDir)
+            backendServiceArm: 'az-sub-infra'
+            backendAzureRmStorageAccountName: 'tfstatedevbackend'
+            backendAzureRmContainerName: 'tfstate'
+            backendAzureRmKey: 'dev.terraform.tfstate'
+        - task: TerraformTask@5
+          inputs:
+            provider: 'azurerm'
+            command: 'apply'
+            workingDirectory: $(workDir)
+            environmentServiceNameAzureRM: 'az-sub-infra'
+
