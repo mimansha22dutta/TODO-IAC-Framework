@@ -1,0 +1,1 @@
+variable "kv_configs" {}

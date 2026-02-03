@@ -1,0 +1,1 @@
+variable "sql_db_config" {}
