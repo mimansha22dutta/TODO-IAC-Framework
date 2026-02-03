@@ -1,0 +1,46 @@
+trigger:
+- main
+
+pool: Iac-agent-pool
+
+stages:
+  - stage: Build
+    displayName: Build
+    jobs:
+      - job: TerraformInitPlan
+        displayName: Terraform Init and Plan Job
+        steps: 
+        - task: TerraformInstaller@1
+          inputs:
+            terraformVersion: 'latest'
+        - task: TerraformTask@5
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environments/dev'
+            backendServiceArm: 'az-sub-infra'
+            backendAzureRmStorageAccountName: 'tfstatedevbackend'
+            backendAzureRmContainerName: 'tfstate'
+            backendAzureRmKey: 'dev.terraform.tfstate'
+        - task: TerraformTask@5
+          inputs:
+            provider: 'azurerm'
+            command: 'plan'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/environments/dev'
+            environmentServiceNameAzureRM: 'az-sub-infra'
+  
+  - stage: Scanning
+    displayName: Scanning
+    jobs:
+      - job: TFSecScanningJob
+        displayName: TFSEC Scanning Job
+        steps:
+          - 
+
+      - job: TFLintScanningJob
+        displayName: TFLINT Scanning Wala Job
+
+  - stage: Deploy
+    displayName: Deploy
+     
+
